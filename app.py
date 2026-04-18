@@ -4,73 +4,62 @@ from datetime import datetime
 from streamlit_qrcode_scanner import qrcode_scanner
 
 # Config
-st.set_page_config(page_title="Stock Scan PRO", layout="centered")
+st.set_page_config(page_title="Stock Scan", layout="centered")
 
-# Style pour optimiser l'espace et les boutons
+# CSS pour compacter l'interface et fixer le bouton
 st.markdown("""
     <style>
+    /* Réduit les marges hautes */
+    .block-container { padding-top: 1rem; }
+    
+    /* Style du bouton valider */
     div.stButton > button:first-child {
-        height: 3.5em;
+        height: 3em;
         width: 100%;
         background-color: #28a745;
         color: white;
-        font-size: 18px;
         font-weight: bold;
-        border-radius: 12px;
+        border-radius: 10px;
     }
+    
+    /* Aligne le texte du scanner */
+    .stHeader { font-size: 1.2rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📲 Gestion de Stock")
+# --- NAVIGATION ---
+mode = st.segmented_control("MENU", ["MOUVEMENTS", "INVENTAIRE"], default="MOUVEMENTS")
 
-tab_flux, tab_inv = st.tabs(["🔄 MOUVEMENTS", "📋 INVENTAIRE"])
+# --- SCANNER (Toujours en haut et compact) ---
+st.write("📸 **Scanner ici :**")
+# On réduit la taille du scanner pour qu'il ne prenne pas tout l'écran
+valeur_qr = qrcode_scanner(key='global_scanner')
 
-# --- SECTION FLUX ---
-with tab_flux:
-    st.subheader("Scanner un produit")
-    # Le scanner est placé ici, il écrit dans 'valeur_qr'
-    valeur_qr = qrcode_scanner(key='scanner_flux')
-    
+if mode == "MOUVEMENTS":
     with st.form("form_flux", clear_on_submit=True):
-        type_mouv = st.segmented_control(
-            "Action", ["ENTRÉE", "SORTIE", "PERTE"], default="SORTIE"
-        )
+        # On met les options sur une seule ligne pour gagner de la place
+        c1, c2 = st.columns(2)
+        with c1:
+            type_mouv = st.selectbox("Action", ["SORTIE", "ENTRÉE", "PERTE"])
+        with c2:
+            site = st.selectbox("Site", ["LPB", "GUINGUETTE", "FLAMMA"])
         
-        site = st.segmented_control(
-            "Site concerné", ["LPB", "GUINGUETTE", "FLAMMA"], default="LPB"
-        )
-        
-        st.divider()
-
-        # Le champ produit récupère automatiquement la valeur du scanner
-        produit = st.text_input("📦 Produit détecté", value=valeur_qr if valeur_qr else "", key="p_flux")
+        # Le produit détecté est affiché en petit
+        produit = st.text_input("📦 Produit", value=valeur_qr if valeur_qr else "", placeholder="En attente de scan...")
         
         quantite = st.number_input("Quantité", min_value=0.0, step=1.0)
-        commentaire = st.text_input("Note (optionnel)")
         
-        submit = st.form_submit_button("VALIDER LE MOUVEMENT")
+        submit = st.form_submit_button("VALIDER")
 
-    if submit:
-        if produit and quantite > 0:
-            st.success(f"✅ Enregistré : {type_mouv} de {quantite} sur {site}")
-        else:
-            st.warning("⚠️ Scannez un produit et indiquez une quantité.")
+    if submit and produit:
+        st.success(f"Enregistré : {produit}")
 
-# --- SECTION INVENTAIRE ---
-with tab_inv:
-    st.subheader("Scanner pour Inventaire")
-    valeur_qr_inv = qrcode_scanner(key='scanner_inv')
-
+else:
     with st.form("form_inv", clear_on_submit=True):
-        site_inv = st.segmented_control(
-            "Site", ["LPB", "GUINGUETTE", "FLAMMA"], default="LPB", key="s_inv"
-        )
+        site_inv = st.selectbox("Site", ["LPB", "GUINGUETTE", "FLAMMA"])
+        prod_inv = st.text_input("📦 Produit", value=valeur_qr if valeur_qr else "")
+        q_inv = st.number_input("Stock réel", min_value=0.0)
         
-        st.divider()
-        
-        prod_inv = st.text_input("📦 Produit détecté", value=valeur_qr_inv if valeur_qr_inv else "", key="p_inv")
-        q_inv = st.number_input("Stock réel total", min_value=0.0)
-            
         submit_inv = st.form_submit_button("FIXER L'INVENTAIRE")
 
-st.caption(f"LPB Stock System | {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"v1.0 | {datetime.now().strftime('%H:%M')}")
