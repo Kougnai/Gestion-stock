@@ -6,7 +6,7 @@ from streamlit_qrcode_scanner import qrcode_scanner
 # Config
 st.set_page_config(page_title="Stock Scan PRO", layout="centered")
 
-# CSS pour compacter et épurer
+# CSS pour l'ergonomie mobile
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem; }
@@ -18,53 +18,69 @@ st.markdown("""
         font-weight: bold;
         border-radius: 12px;
     }
-    /* Style pour les titres de section */
     .section-title {
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         font-weight: bold;
         color: #666;
-        margin-bottom: -10px;
+        margin-bottom: 5px;
+        text-transform: uppercase;
     }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("📲 Gestion de Stock")
 
-# --- 1. RÉGLAGES (En haut, hors du formulaire) ---
-st.markdown('<p class="section-title">1. RÉGLAGES GÉNÉRAUX</p>', unsafe_allow_html=True)
-col_a, col_b = st.columns(2)
-with col_a:
-    type_mouv = st.selectbox("Action", ["SORTIE", "ENTRÉE", "PERTE"])
-with col_b:
-    site = st.selectbox("Site", ["LPB", "GUINGUETTE", "FLAMMA"])
+# --- 1. NAVIGATION PRINCIPALE (TOUT EN HAUT) ---
+mode = st.segmented_control(
+    "CHOISIR LA FEUILLE", 
+    ["FLUX", "INVENTAIRE"], 
+    default="FLUX",
+    key="nav_principale"
+)
 
 st.divider()
 
-# --- 2. CAMÉRA ---
-st.markdown('<p class="section-title">2. SCANNER LE PRODUIT</p>', unsafe_allow_html=True)
-valeur_qr = qrcode_scanner(key='scanner_unique')
+if mode == "FLUX":
+    # --- RÉGLAGES FLUX ---
+    st.markdown('<p class="section-title">Réglages du mouvement</p>', unsafe_allow_html=True)
+    col_a, col_b = st.columns(2)
+    with col_a:
+        type_mouv = st.selectbox("Action", ["SORTIE", "ENTRÉE", "PERTE"])
+    with col_b:
+        site = st.selectbox("Site", ["LPB", "GUINGUETTE", "FLAMMA"])
 
-st.divider()
+    st.markdown('<p class="section-title">Scanner le produit</p>', unsafe_allow_html=True)
+    valeur_qr = qrcode_scanner(key='scanner_flux')
 
-# --- 3. FORMULAIRE DE VALIDATION ---
-# On garde le formulaire très court pour qu'il tienne sous la caméra
-with st.form("form_validation", clear_on_submit=True):
-    # Rappel du produit détecté (ou saisie manuelle si le scan rate)
-    produit = st.text_input("📦 Produit détecté", value=valeur_qr if valeur_qr else "")
-    
-    quantite = st.number_input("Quantité", min_value=0.0, step=1.0, value=1.0)
-    
-    # Bouton de validation
-    submit = st.form_submit_button("VALIDER L'ENREGISTREMENT")
+    with st.form("form_flux", clear_on_submit=True):
+        produit = st.text_input("📦 Produit détecté", value=valeur_qr if valeur_qr else "")
+        quantite = st.number_input("Quantité", min_value=0.0, step=1.0, value=1.0)
+        commentaire = st.text_input("Note (optionnel)")
+        submit = st.form_submit_button("VALIDER LE FLUX")
 
-# --- LOGIQUE D'ENVOI ---
-if submit:
-    if produit and quantite > 0:
-        # Ici on prépare la ligne pour le Google Sheet
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        st.success(f"Enregistré : {type_mouv} | {produit} | Qté: {quantite} | {site}")
-        st.balloons()
-    else:
-        st.error("Données manquantes (produit ou quantité)")
+    if submit:
+        if produit and quantite > 0:
+            st.success(f"✅ Flux enregistré : {type_mouv} | {produit} | {site}")
+        else:
+            st.error("Données manquantes")
+
+else:
+    # --- RÉGLAGES INVENTAIRE ---
+    st.markdown('<p class="section-title">Réglages Inventaire</p>', unsafe_allow_html=True)
+    site_inv = st.selectbox("Site à inventorier", ["LPB", "GUINGUETTE", "FLAMMA"])
+
+    st.markdown('<p class="section-title">Scanner pour inventaire</p>', unsafe_allow_html=True)
+    valeur_qr_inv = qrcode_scanner(key='scanner_inv')
+
+    with st.form("form_inv", clear_on_submit=True):
+        prod_inv = st.text_input("📦 Produit détecté", value=valeur_qr_inv if valeur_qr_inv else "")
+        q_inv = st.number_input("Stock réel total", min_value=0.0, step=1.0)
+        submit_inv = st.form_submit_button("FIXER L'INVENTAIRE")
+
+    if submit_inv:
+        if prod_inv:
+            st.success(f"✅ Inventaire fixé : {prod_inv} à {q_inv} sur {site_inv}")
+        else:
+            st.error("Scannez un produit")
 
 st.caption(f"LPB Stock System | {datetime.now().strftime('%d/%m/%Y %H:%M')}")
